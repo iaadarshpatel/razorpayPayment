@@ -1,27 +1,26 @@
 import express from 'express';
 import axios from 'axios';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import DatabaseConnect from '../db/DatabaseConnect.js';
+import UserModel from '../models/Users.js';
+import cors from 'cors';
 
 // Initialize environment variables
 dotenv.config();
+
+// Connect to MongoDB
+DatabaseConnect(); 
 
 // Create an instance of Express
 const app = express();
 const port = process.env.PORT || 3002;
 
-// Manually define __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 // Middleware
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(cors())
 
-// Serve static files from the React app
-app.use(express.static(path.join(__dirname, '../client/build')));
 
+// Fetch a batch of payments
 const fetchPaymentsBatch = async (pageSize, startingAfter = null) => {
     const response = await axios.get('https://api.razorpay.com/v1/payments', {
         auth: {
@@ -37,58 +36,26 @@ const fetchPaymentsBatch = async (pageSize, startingAfter = null) => {
     return response.data;
 };
 
-const fetchAllPayments = async () => {
-    let allPayments = [];
-    let hasMore = true;
-    let startingAfter = null;
-    const pageSize = 100;
-
-    while (hasMore) {
-        try {
-            // Fetch a batch of payments
-            const data = await fetchPaymentsBatch(pageSize, startingAfter);
-            const payments = data.items.filter(payment => payment.captured);
-
-            // Add to the list without duplicates
-            const paymentMap = new Map();
-            allPayments.forEach(payment => paymentMap.set(payment.id, payment));
-            payments.forEach(payment => paymentMap.set(payment.id, payment));
-            allPayments = Array.from(paymentMap.values());
-
-            hasMore = data.has_more;
-            if (hasMore) {
-                startingAfter = data.items[data.items.length - 1].id;
-            }
-        } catch (error) {
-            console.error('Error fetching payments:', error.message, error.response?.data);
-            throw new Error('Failed to fetch payments');
-        }
-    }
-
-    return allPayments;
-};
-
+// API endpoint to get payments
 app.get('/api/payments', async (req, res) => {
     try {
-        const capturedPayments = await fetchAllPayments();
-        const capturedCount = capturedPayments.length;
-
+        const pageSize = 100; // Define your page size
+        const data = await fetchPaymentsBatch(pageSize);
+        const capturedPayments = data.items.filter(payment => payment.captured);
+        
         res.json({
-            totalCount: capturedCount,
+            totalCount: capturedPayments.length,
             items: capturedPayments,
         });
     } catch (error) {
-        res.status(500).json({
-            error: 'Failed to fetch payments',
-            details: error.message,
-        });
+        res.status(500).json({ error: 'Failed to fetch payments' });
     }
 });
 
-
-// The "catchall" handler: for any request that doesn't match one of the API routes, send back React's index.html file.
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/build/index.html'));
+app.get('/getUsers', async (req, res) => {
+    UserModel.find()
+    .then(users => res.json(users))
+    .catch(err => res.json(err))
 });
 
 // Start the server

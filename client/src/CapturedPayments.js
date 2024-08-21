@@ -83,7 +83,7 @@ const CapturedPayments = () => {
                           <strong>Contact:</strong> {payment.contact}
                       </div>
                       <div style={styles.paymentDetails}>
-                          <strong>Date:</strong> {dayjs.unix(payment.created_at).format('D MMM YYYY, h:mm A')} {/* Format the date */}
+                          <strong>Date:</strong> {dayjs.unix(payment.created_at).format('D MMM YYYY, h:mm A')} 
                       </div>
                       <div style={styles.paymentDetails}>
                           <strong>Notes:</strong>
